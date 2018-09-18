@@ -158,7 +158,7 @@ The understanding of the three placeholders is as follows:
     * `prolog.assertFirst("data(variable, @A)", "X")`
     * `prolog.assertFirst("data(list, @A)", "[1212, pete, father(mary, john), X, 34]")`
         * this will yield clause `data(list, [1212, pete, father(mary, john), _, 34])`
-* **@S**: interpret the argument as a full **atom**, whatever it is. Basically it is like adding `..`.
+* **@S**: interpret the argument as a full **atom**, whatever it is. Basically it is like adding `'...'`.
     * `prolog.assertFirst("data(atom_simple, @A)", "helloWorld")`
     * `prolog.assertFirst("data(atom_complex, @S)", "here comes the sun")`
         * would not work with @A because there are spaces. 
