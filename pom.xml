@@ -54,7 +54,7 @@
     <dependency>
         <groupId>com.github.ssardina-research</groupId>
         <artifactId>packages-jpl</artifactId>
-        <version>408d59b</version>
+        <version>f333b67</version>
         <scope>compile</scope>
     </dependency>
 
