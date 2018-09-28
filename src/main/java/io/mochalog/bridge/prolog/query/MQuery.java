@@ -19,6 +19,7 @@ package io.mochalog.bridge.prolog.query;
 import io.mochalog.bridge.prolog.lang.Module;
 
 import io.mochalog.util.format.AbstractFormatter;
+import org.jpl7.*;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -50,11 +51,12 @@ public class MQuery
         {
             super();
 
-            // Prolog atom value
+            // Interpret the data as ATOMIC: atoms, numbers (integers and floats), compound terms, variables, and lists.
             setRule("A", (i, o) -> String.valueOf(o));
-            // Prolog strings are wrapped in quote characters
+            // Interpret the argument as a whole ATOM, whatever it is. Basically it is like adding quotes '....'
+            //      For example if we to pass atom 'Variable' but not be treated as variable, or 'hello world'
             setRule("S", (i, o) -> "\"" + String.valueOf(o) + "\"");
-            // Prolog integer
+            // Interpret as an integer
             setRule("I", Formatter::formatInteger);
 
             // Doc on regexp in Java:
@@ -72,11 +74,13 @@ public class MQuery
 
             // Basic regex capturing most Prolog BASIC term instances
             // (integers, floats, strings, atoms)
-            // TODO: Not a robust grammar definition of a Prolog term
+            // TODO: Not a robust grammar definition of a Prolog term: it misses neasted terms badly, see MochaTest2
+            //          can it actually be done with a regular expresion given that it is context-free?!?!?!
+            //
             // regexp: \w+ | [0-9]+.[0-9] | "[^"]*"
             //  a non empty word \w+ (including integers) OR
             //  a number with decimals [0-9]+.[0-9]
-            //  a string (any text quoted): "[^"]*"
+            //  a string (any queryText quoted): "[^"]*"
             final String TERM_DEFINITION = "\\w+|[0-9]+.[0-9]|\"[^\"]*\"";
 
 
@@ -100,10 +104,20 @@ public class MQuery
             // to facilitate replacement of specified values
             StringBuilder setterCompounds = new StringBuilder();
 
+
+//            System.out.println("==========================================");
+//            System.out.println(str);
+//            System.out.println();
+
             // Find instances of compounds in the query string
             while (compoundMatcher.find())
             {
                 String compound = compoundMatcher.group();
+
+
+//                System.out.println(compound);
+
+
                 // Run a regex query over the query compound, looking
                 // for instances of setter syntax
                 Matcher setterMatcher = TERM_SETTER_PATTERN.matcher(compound);
@@ -160,16 +174,35 @@ public class MQuery
     }
 
     // String form of Prolog query
-    private final String text;
+    private final String queryText;
+    private final Term queryTerm;
+    private final Query jplQuery;
 
     /**
-     * Constructor.
-     * @param text Query string
+     * Constructor based on a single string
+     *
+     * @param queryText Query string
      */
-    public MQuery(String text)
+    public MQuery(String queryText)
     {
-        this.text = text;
+        this.queryText = queryText;
+        this.queryTerm = Util.textToTerm(queryText);
+        this.jplQuery = new Query(this.queryTerm);
     }
+
+
+    /**
+     * Constructor based on a single string
+     *
+     * @param queryTerm Query string
+     */
+    public MQuery(Term queryTerm)
+    {
+        this.queryText = null;
+        this.queryTerm = queryTerm;
+        this.jplQuery = new Query(this.queryTerm);
+    }
+
 
     /**
      * Convert the query to string format
@@ -178,15 +211,23 @@ public class MQuery
     @Override
     public String toString()
     {
-        return text;
+        return queryText;
     }
 
     /**
-     * Formulate a query based on a format string
-     * and substitution arguments
+     * Does this query have a textual representation?
+     *
+     * @return true if it has a textual representation
+     */
+    public boolean hasText() {
+        return this.queryText != null;
+    }
+
+    /**
+     * Formulate a query based on a format string and @-substitution arguments
      * @param query Formatted query string
      * @param args Query arguments
-     * @return Query object
+     * @return MQuery object
      */
     public static MQuery format(String query, Object... args)
     {
@@ -194,6 +235,29 @@ public class MQuery
         String formattedQuery = formatter.format(query, args);
         return new MQuery(formattedQuery);
     }
+
+    /**
+     * Formulate a query based on a format string and @-substitution arguments
+     * @param query Formatted query string
+     * @param args Query arguments
+     * @return MQuery object
+     */
+    public static MQuery jpl_format(String query, Term... args)
+    {
+        return new MQuery(Query1(query, args));
+    }
+
+    // Taken verbatim from JPL Query.java as it is a private there! :-(
+    private static Term Query1(String text, Term[] args) {
+        Term t = Util.textToTerm(text);
+        if (t instanceof Atom) {
+            return new Compound(text, args);
+        } else {
+            return t.putParams(args);
+        }
+    }
+
+
 
     /**
      * Generate a string form of the given query which
@@ -223,7 +287,7 @@ public class MQuery
         {
             MQuery query = (MQuery) o;
             // Field comparisons
-            return Objects.equals(text, query.text);
+            return Objects.equals(queryText, query.queryText);
         }
 
         return false;
@@ -232,6 +296,6 @@ public class MQuery
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(text);
+        return Objects.hashCode(queryText);
     }
 }
